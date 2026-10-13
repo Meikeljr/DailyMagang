@@ -10,13 +10,14 @@ import bcrypt from 'bcryptjs';
 import multer from 'multer';
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
+import { fileURLToPath } from 'node:url';
 import { pool } from './config/database.js';
 
 const app = express();
 const PgStore = connectPg(session);
 app.set('trust proxy', 1);
 app.use(helmet());
-app.use(cors({ origin: process.env.CLIENT_ORIGIN || 'http://localhost:5173', credentials: true }));
+if (process.env.NODE_ENV !== 'production') app.use(cors({ origin: process.env.CLIENT_ORIGIN || 'http://localhost:5173', credentials: true }));
 app.use(express.json({ limit: '1mb' }));
 app.use(session({ store: new PgStore({ pool, createTableIfMissing: true }), secret: process.env.SESSION_SECRET || 'dev-only-change-this-secret', resave: false, saveUninitialized: false, cookie: { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 1000 * 60 * 60 * 24 * 7 } }));
 const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 12, standardHeaders: true, legacyHeaders: false });
@@ -43,5 +44,11 @@ app.get('/api/export/:format',auth,async(req,res,next)=>{try{const {sql,p}=filte
 const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:5*1024*1024,files:1}});
 app.post('/api/import/preview',auth,upload.single('file'),async(req,res,next)=>{try{if(!req.file)return res.status(400).json({error:'Pilih file terlebih dahulu.'});const name=req.file.originalname.toLowerCase();let data;if(name.endsWith('.csv')){const lines=req.file.buffer.toString('utf8').replace(/^\ufeff/,'').split(/\r?\n/).filter(Boolean),head=lines.shift().split(',').map(x=>x.trim().toLowerCase());data=lines.map(line=>{const a=line.split(',').map(x=>x.trim().replace(/^"|"$/g,''));return Object.fromEntries(head.map((h,i)=>[h,a[i]]));});}else if(name.endsWith('.xlsx')){const wb=new ExcelJS.Workbook();await wb.xlsx.load(req.file.buffer);const ws=wb.worksheets[0];const head=ws.getRow(1).values.slice(1).map(x=>String(x||'').trim().toLowerCase());data=[];ws.eachRow((row,n)=>{if(n>1)data.push(Object.fromEntries(head.map((h,i)=>[h,row.getCell(i+1).text])));});}else return res.status(400).json({error:'Gunakan CSV atau XLSX.'});const mapping={activity:['activity'],dateStart:['date start','date_start'],dateEnd:['date end','date_end'],startTime:['jam mulai','start_time'],endTime:['jam berakhir','end_time'],place:['tempat kegiatan','place'],progress:['progress'],detail:['detail kegiatan','detail']};const rows=data.slice(0,500).map(r=>{const v={};for(const [key,aliases] of Object.entries(mapping)){const k=Object.keys(r).find(x=>aliases.includes(x));v[key]=k?r[k]:undefined;}return v;});res.json({rows,total:rows.length});}catch(e){next(e);}});
 app.post('/api/import/confirm',auth,async(req,res,next)=>{try{if(!Array.isArray(req.body.rows)||req.body.rows.length>500)return res.status(400).json({error:'Baris impor tidak valid.'});let imported=0;const errors=[];for(let i=0;i<req.body.rows.length;i++){let v=req.body.rows[i];if(v.dateStart!==v.dateEnd){v.startTime=null;v.endTime=null;}const parsed=activitySchema.safeParse({...v,progress:Number(String(v.progress).replace('%',''))});if(!parsed.success){errors.push({row:i+1,error:parsed.error.issues[0].message});continue;}const a=parsed.data;try{await pool.query('INSERT INTO activities(user_id,activity,date_start,date_end,start_time,end_time,place,progress,detail) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',[req.session.user.username,a.activity,a.dateStart,a.dateEnd,a.startTime||null,a.endTime||null,a.place,a.progress,a.detail]);imported++;}catch(e){errors.push({row:i+1,error:'Gagal disimpan.'});}}res.json({imported,failed:errors.length,errors});}catch(e){next(e);}});
+const clientDist = fileURLToPath(new URL('../../client/dist/', import.meta.url));
+app.use(express.static(clientDist));
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api/')) return next();
+  res.sendFile(fileURLToPath(new URL('../../client/dist/index.html', import.meta.url)), error => error && next(error));
+});
 app.use((err,req,res,next)=>{console.error(err);if(err instanceof z.ZodError)return res.status(400).json({error:err.issues[0]?.message||'Input tidak valid.'});if(err instanceof multer.MulterError)return res.status(400).json({error:'File terlalu besar atau tidak valid.'});res.status(500).json({error:'Terjadi kesalahan pada server.'});});
 export default app;

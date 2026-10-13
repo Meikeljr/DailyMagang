@@ -29,7 +29,7 @@ export function printDatabaseConnectionError(error, context = 'Aplikasi') {
   }
   if (error?.code === '28P01') {
     console.error('Supabase menolak password. Pastikan DATABASE_URL berisi password database project ini, bukan password akun Supabase. Jika password berisi karakter khusus, URL-encode sebelum memasukkannya ke URI.');
-    console.error('Render → service API → Environment → perbarui DATABASE_URL → Save, rebuild, and deploy.');
+    console.error('Perbarui DATABASE_URL pada environment service hosting setelah memastikan password database benar, lalu deploy ulang.');
   } else if (error?.code === 'ENOTFOUND' || error?.code === 'ECONNREFUSED' || error?.code === 'ETIMEDOUT') {
     console.error('Periksa host/port Supabase dan gunakan URI Session pooler dari menu Connect.');
   }

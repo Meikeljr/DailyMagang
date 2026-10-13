@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { pool, databaseTarget, printDatabaseConnectionError } from '../src/config/database.js';
 
 if (!process.env.DATABASE_URL) {
-  console.error('DATABASE_URL belum diatur. Tambahkan URI Supabase Session pooler di Render → service API → Environment.');
+  console.error('DATABASE_URL belum diatur. Tambahkan URI Supabase Session pooler di environment server.');
   process.exit(1);
 }
 

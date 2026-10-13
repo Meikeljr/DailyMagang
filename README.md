@@ -35,19 +35,26 @@ Migration berada di `server/migrations/`. Skrip `npm run migrate -w server` mene
 - Pilih beberapa tanggal di antara tanggal mulai dan selesai pada Rangkuman Harian. Kedua batas termasuk, tanggal di luar rentang tidak termasuk.
 - Uji ekspor melalui tombol pada Laporan; impor menampilkan preview sebelum konfirmasi dan menyertakan laporan baris gagal.
 
-## Deploy Vercel + Render + Supabase
+## Deploy Render + Supabase
 
-- Frontend Vite dideploy di Vercel dengan Root Directory `client`. `client/vercel.json` meneruskan `/api/*` ke URL service Render; ganti `YOUR-RENDER-SERVICE` dengan hostname Render sebelum deploy.
-- Backend Express dideploy sebagai Web Service Render. `render.yaml` berisi build/start command, health check, dan environment variables yang perlu diisi di dashboard.
-- Gunakan `DATABASE_URL` Supabase **Session pooler**, bukan URI dengan user `postgres` dari direct connection. Session pooler username berbentuk `postgres.<PROJECT_REF>`. Gunakan password database project dan URL-encode karakter khusus di password. Sertakan `sslmode=require` pada URI.
-- Render menjalankan migration pada start. Untuk memeriksa koneksi sebelum migration, jalankan `npm run check-db -w server` dari lingkungan yang memiliki `DATABASE_URL`.
-- Isi `SESSION_SECRET`, `NODE_ENV=production`, dan `CLIENT_ORIGIN` di Render. Cookie production memakai HTTPS. Vercel meneruskan request API melalui domain frontend agar cookie tetap first-party.
-- Buat backup rutin PostgreSQL dan uji pemulihannya. Database Supabase baru tidak otomatis berisi data dari database lokal.
+Frontend dan backend berjalan dalam **satu Render Web Service**. Saat build, Render membuat frontend Vite; Express menyajikan file hasil build sekaligus endpoint `/api/*`. Supabase hanya digunakan sebagai database PostgreSQL.
+
+1. Push folder project ini ke GitHub.
+2. Di Render, pilih **New → Blueprint** dan hubungkan repository. Biarkan Root Directory kosong (root repository). Render membaca `render.yaml` untuk membuat Web Service dan menjalankan `npm install && npm run build -w client` saat build.
+3. Buka project Supabase → **Connect** → pilih **Session pooler**. Salin connection string yang disediakan. Format username pooler bersama ialah `postgres.<PROJECT_REF>`; gunakan host persis seperti yang ditampilkan Supabase.
+4. Pada Render Web Service `internship-log`, buka **Environment** dan isi `DATABASE_URL` dengan URI Supabase tersebut. Ganti placeholder password dengan **database password** project Supabase (bukan password login Supabase). Encode karakter khusus pada password sebagai URL encoding, dan tambahkan `?sslmode=require` jika URI yang disalin belum menyertakannya. Simpan.
+5. Deploy service. Perintah start menjalankan migration Supabase lebih dahulu, kemudian memulai Express. Buka URL `onrender.com` service yang sama untuk memakai frontend; endpoint pemeriksaan tersedia di `/api/health`.
+
+Jika log migration menampilkan `password authentication failed`, periksa nilai `DATABASE_URL` pada Environment Render: URI Session pooler harus memakai username `postgres.<PROJECT_REF>` dan password database yang benar. Bila password tidak diketahui, reset database password di Supabase lalu perbarui URI di Render. Setelah mengubah environment, simpan dan deploy ulang. Jangan menaruh `DATABASE_URL` di GitHub.
+
+Untuk memeriksa koneksi dari lingkungan lokal, atur `DATABASE_URL` pada `server/.env`, lalu jalankan `npm run check-db -w server`. Untuk menguji deployment, buka `https://<nama-service>.onrender.com/api/health` dan pastikan responsnya `{"ok":true}`. Layanan gratis Render dapat tidur saat tidak digunakan sehingga pembukaan pertama mungkin perlu menunggu proses startup. Supabase menyediakan PostgreSQL yang tetap terpisah dari layanan aplikasi Render.
+
+Buat backup rutin PostgreSQL dan uji pemulihannya. Database Supabase baru tidak otomatis berisi data dari database lokal.
 
 ## Batasan saat ini
 
 - Belum ada automated integration test atau UI test; fitur belum diklaim terverifikasi dengan suite pengujian.
-- Proteksi CSRF belum menggunakan token khusus; SameSite=Lax dan pemeriksaan origin CORS menjadi lapisan awal, dan deployment lintas situs perlu menambahkan strategi CSRF yang sesuai.
+- Proteksi CSRF belum menggunakan token khusus; cookie SameSite=Lax menjadi lapisan awal perlindungan.
 - Impor menerima CSV/XLSX, maksimum 5 MB/500 baris; deteksi duplikat belum ditambahkan. CSV dengan koma/quote kompleks perlu dibersihkan sebelum impor.
 - Ekspor PDF adalah laporan teks ringkas. Laporan harian/mingguan/bulanan dapat difilter melalui rentang tanggal, belum berupa preset terpisah.
 - Backup dijelaskan sebagai prosedur operasional; aplikasi tidak menjalankan backup otomatis.

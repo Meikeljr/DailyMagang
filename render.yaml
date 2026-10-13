@@ -1,9 +1,9 @@
 services:
   - type: web
-    name: internship-log-api
+    name: internship-log
     runtime: node
     plan: free
-    buildCommand: npm install
+    buildCommand: npm install && npm run build -w client
     startCommand: npm run migrate -w server && npm start -w server
     healthCheckPath: /api/health
     envVars:
@@ -13,5 +13,3 @@ services:
         generateValue: true
       - key: NODE_ENV
         value: production
-      - key: CLIENT_ORIGIN
-        sync: false
