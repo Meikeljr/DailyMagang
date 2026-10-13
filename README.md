@@ -35,9 +35,14 @@ Migration berada di `server/migrations/`. Skrip `npm run migrate -w server` mene
 - Pilih beberapa tanggal di antara tanggal mulai dan selesai pada Rangkuman Harian. Kedua batas termasuk, tanggal di luar rentang tidak termasuk.
 - Uji ekspor melalui tombol pada Laporan; impor menampilkan preview sebelum konfirmasi dan menyertakan laporan baris gagal.
 
-## Production
+## Deploy Vercel + Render + Supabase
 
-Jalankan `npm run build`, deploy `client/dist` sebagai frontend statis dan `server` pada Node.js, siapkan PostgreSQL terkelola/mandiri, jalankan migration pada deployment, dan set `DATABASE_URL`, `SESSION_SECRET`, `CLIENT_ORIGIN`, `NODE_ENV=production`, serta `VITE_API_URL`. Gunakan HTTPS; secure cookie aktif otomatis pada production. Buat backup rutin PostgreSQL (`pg_dump`) dan uji pemulihan dengan `pg_restore`. Pastikan frontend dan API memakai origin/CORS/cookie yang sesuai bila domain berbeda.
+- Frontend Vite dideploy di Vercel dengan Root Directory `client`. `client/vercel.json` meneruskan `/api/*` ke URL service Render; ganti `YOUR-RENDER-SERVICE` dengan hostname Render sebelum deploy.
+- Backend Express dideploy sebagai Web Service Render. `render.yaml` berisi build/start command, health check, dan environment variables yang perlu diisi di dashboard.
+- Gunakan `DATABASE_URL` Supabase **Session pooler**, bukan URI dengan user `postgres` dari direct connection. Session pooler username berbentuk `postgres.<PROJECT_REF>`. Gunakan password database project dan URL-encode karakter khusus di password. Sertakan `sslmode=require` pada URI.
+- Render menjalankan migration pada start. Untuk memeriksa koneksi sebelum migration, jalankan `npm run check-db -w server` dari lingkungan yang memiliki `DATABASE_URL`.
+- Isi `SESSION_SECRET`, `NODE_ENV=production`, dan `CLIENT_ORIGIN` di Render. Cookie production memakai HTTPS. Vercel meneruskan request API melalui domain frontend agar cookie tetap first-party.
+- Buat backup rutin PostgreSQL dan uji pemulihannya. Database Supabase baru tidak otomatis berisi data dari database lokal.
 
 ## Batasan saat ini
 

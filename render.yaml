@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: internship-log-api
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm run migrate -w server && npm start -w server
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: NODE_ENV
+        value: production
+      - key: CLIENT_ORIGIN
+        sync: false

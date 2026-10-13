@@ -5,15 +5,13 @@ import connectPg from 'connect-pg-simple';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import pg from 'pg';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import multer from 'multer';
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
+import { pool } from './config/database.js';
 
-const { Pool } = pg;
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const app = express();
 const PgStore = connectPg(session);
 app.set('trust proxy', 1);
